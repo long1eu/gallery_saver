@@ -26,6 +26,7 @@ class GallerySaverPlugin private constructor(
         when (call.method) {
             "saveImage" -> gallerySaver.checkPermissionAndSaveFile(call, result, MediaType.image)
             "saveVideo" -> gallerySaver.checkPermissionAndSaveFile(call, result, MediaType.video)
+            "saveAudio" -> gallerySaver.checkPermissionAndSaveFile(call, result, MediaType.audio)
             else -> result.notImplemented()
         }
     }

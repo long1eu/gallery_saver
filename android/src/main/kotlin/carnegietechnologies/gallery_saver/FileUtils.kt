@@ -36,9 +36,9 @@ internal object FileUtils {
      * @return true if image was saved successfully
      */
     fun insertImage(
-        contentResolver: ContentResolver,
-        path: String,
-        folderName: String?
+            contentResolver: ContentResolver,
+            path: String,
+            folderName: String?
     ): Boolean {
 
         val file = File(path)
@@ -119,8 +119,8 @@ internal object FileUtils {
         val matrix = Matrix()
         matrix.preRotate(rotationInDegrees.toFloat())
         val adjustedBitmap = Bitmap.createBitmap(
-            bitmap, 0, 0,
-            bitmap.width, bitmap.height, matrix, true
+                bitmap, 0, 0,
+                bitmap.width, bitmap.height, matrix, true
         )
         bitmap.recycle()
 
@@ -137,9 +137,9 @@ internal object FileUtils {
      * @param id              - path id
      */
     private fun storeThumbnail(
-        contentResolver: ContentResolver,
-        source: Bitmap,
-        id: Long
+            contentResolver: ContentResolver,
+            source: Bitmap,
+            id: Long
     ) {
 
         val matrix = Matrix()
@@ -150,10 +150,10 @@ internal object FileUtils {
         matrix.setScale(scaleX, scaleY)
 
         val thumb = Bitmap.createBitmap(
-            source, 0, 0,
-            source.width,
-            source.height, matrix,
-            true
+                source, 0, 0,
+                source.width,
+                source.height, matrix,
+                true
         )
 
         val values = ContentValues()
@@ -163,7 +163,7 @@ internal object FileUtils {
         values.put(MediaStore.Images.Thumbnails.WIDTH, thumb.width)
 
         val thumbUri = contentResolver.insert(
-            MediaStore.Images.Thumbnails.EXTERNAL_CONTENT_URI, values
+                MediaStore.Images.Thumbnails.EXTERNAL_CONTENT_URI, values
         )
 
         var outputStream: OutputStream? = null
@@ -197,8 +197,8 @@ internal object FileUtils {
     private fun getRotation(path: String): Int {
         val exif = ExifInterface(path)
         return exif.getAttributeInt(
-            ExifInterface.TAG_ORIENTATION,
-            ExifInterface.ORIENTATION_NORMAL
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_NORMAL
         )
     }
 
@@ -228,10 +228,10 @@ internal object FileUtils {
      * @return true if video was saved successfully
      */
     fun insertVideo(
-        contentResolver: ContentResolver,
-        inputPath: String,
-        folderName: String?,
-        bufferSize: Int = BUFFER_SIZE
+            contentResolver: ContentResolver,
+            inputPath: String,
+            folderName: String?,
+            bufferSize: Int = BUFFER_SIZE
     ): Boolean {
 
         val inputFile = File(inputPath)
@@ -252,7 +252,6 @@ internal object FileUtils {
         // Add the date meta data to ensure the image is added at the front of the gallery
         values.put(MediaStore.Video.Media.DATE_ADDED, System.currentTimeMillis())
         values.put(MediaStore.Video.Media.DATE_TAKEN, System.currentTimeMillis())
-
 
         try {
             val url = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
@@ -278,18 +277,77 @@ internal object FileUtils {
         return true
     }
 
+    /**
+     * Inserts audio into external storage
+     *
+     * @param contentResolver - content resolver
+     * @param path            - path to temp file that needs to be stored
+     * @return true if audio was saved successfully
+     */
+    fun insertAudio(contentResolver: ContentResolver, path: String): Boolean {
+        val file = File(path)
+        val extension = MimeTypeMap.getFileExtensionFromUrl(file.toString())
+        val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+        val source = getBytesFromFile(file)
+
+        val inputStream: InputStream?
+        val outputStream: OutputStream?
+
+        val albumDir = File(getAlbumFolderPath(null, MediaType.audio))
+        val audioFilePath = File(albumDir, file.name).absolutePath
+
+        val values = ContentValues()
+        values.put(MediaStore.Audio.AudioColumns.DATA, audioFilePath)
+        values.put(MediaStore.Audio.Media.TITLE, file.name)
+        values.put(MediaStore.Audio.Media.DISPLAY_NAME, file.name)
+        values.put(MediaStore.Audio.Media.MIME_TYPE, mimeType)
+        values.put(MediaStore.Audio.Media.DATE_ADDED, System.currentTimeMillis())
+
+        try {
+            val url = contentResolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values)
+            inputStream = FileInputStream(file)
+            if (url != null) {
+                outputStream = contentResolver.openOutputStream(url)
+                val size = file.length().toInt()
+                val buffer = ByteArray(size)
+                inputStream.use {
+                    outputStream?.use {
+                        while (inputStream.read(buffer) != EOF) {
+                            outputStream.write(buffer)
+                        }
+                    }
+                }
+            }
+        } catch (fnfE: FileNotFoundException) {
+            Log.e("GallerySaver", fnfE.message)
+            return false
+        } catch (e: Exception) {
+            Log.e("GallerySaver", e.message)
+            return false
+        }
+        return true
+    }
+
     private fun getAlbumFolderPath(folderName: String?, mediaType: MediaType): String {
         var albumFolderPath: String = Environment.getExternalStorageDirectory().path
         albumFolderPath = if (TextUtils.isEmpty(folderName)) {
-            val baseFolderName = if (mediaType == MediaType.image)
-                Environment.DIRECTORY_PICTURES else
-                Environment.DIRECTORY_MOVIES
+            val baseFolderName = when (mediaType) {
+                MediaType.image -> {
+                    Environment.DIRECTORY_PICTURES
+                }
+                MediaType.video -> {
+                    Environment.DIRECTORY_MOVIES
+                }
+                else -> {
+                    Environment.DIRECTORY_MUSIC
+                }
+            }
             createDirIfNotExist(
-                Environment.getExternalStoragePublicDirectory(baseFolderName).path
+                    Environment.getExternalStoragePublicDirectory(baseFolderName).path
             ) ?: albumFolderPath
         } else {
             createDirIfNotExist(albumFolderPath + File.separator + folderName)
-                ?: albumFolderPath
+                    ?: albumFolderPath
         }
         return albumFolderPath
     }

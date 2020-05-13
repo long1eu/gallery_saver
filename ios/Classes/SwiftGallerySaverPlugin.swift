@@ -5,6 +5,7 @@ import Photos
 enum MediaType: Int {
     case image
     case video
+    case audio
 }
 
 public class SwiftGallerySaverPlugin: NSObject, FlutterPlugin {
@@ -22,6 +23,8 @@ public class SwiftGallerySaverPlugin: NSObject, FlutterPlugin {
             self.saveMedia(call, .image, result)
         } else if call.method == "saveVideo" {
             self.saveMedia(call, .video, result)
+        } else if call.method == "saveAudio" {
+            self.saveMedia(call, .audio, result)
         } else {
             result(FlutterMethodNotImplemented)
         }
@@ -60,16 +63,16 @@ public class SwiftGallerySaverPlugin: NSObject, FlutterPlugin {
     private func _saveMediaToAlbum(_ imagePath: String, _ mediaType: MediaType, _ albumName: String?,
                                    _ flutterResult: @escaping FlutterResult) {
         if(albumName == nil){
-           self.saveFile(imagePath, mediaType, nil, flutterResult)
+            self.saveFile(imagePath, mediaType, nil, flutterResult)
         } else if let album = fetchAssetCollectionForAlbum(albumName!) {
-             self.saveFile(imagePath, mediaType, album, flutterResult)
+            self.saveFile(imagePath, mediaType, album, flutterResult)
         } else {
             // create photos album
             createAppPhotosAlbum(albumName: albumName!) { (error) in
                 guard error == nil else {
                     flutterResult(false)
                     return
-                    }
+                }
                 if let album = self.fetchAssetCollectionForAlbum(albumName!){
                     self.saveFile(imagePath, mediaType, album, flutterResult)
                 } else {
@@ -83,15 +86,20 @@ public class SwiftGallerySaverPlugin: NSObject, FlutterPlugin {
                           _ flutterResult: @escaping FlutterResult) {
         let url = URL(fileURLWithPath: filePath)
         PHPhotoLibrary.shared().performChanges({
-            let assetCreationRequest = mediaType == .image ?
-                PHAssetChangeRequest.creationRequestForAssetFromImage(atFileURL: url)
-                : PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url);
-            if (album != nil) {
-                guard let assetCollectionChangeRequest = PHAssetCollectionChangeRequest(for: album!),
-                    let createdAssetPlaceholder = assetCreationRequest?.placeholderForCreatedAsset else {
+            if mediaType == .audio {
+                let request = PHAssetCreationRequest.forAsset();
+                request.addResource(with: .audio, fileURL: url, options: nil)
+            } else{
+                let assetCreationRequest = mediaType == .image ?
+                    PHAssetChangeRequest.creationRequestForAssetFromImage(atFileURL: url)
+                    : PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url);
+                if (album != nil) {
+                    guard let assetCollectionChangeRequest = PHAssetCollectionChangeRequest(for: album!),
+                        let createdAssetPlaceholder = assetCreationRequest?.placeholderForCreatedAsset else {
                             return
                     }
-                assetCollectionChangeRequest.addAssets(NSArray(array: [createdAssetPlaceholder]))
+                    assetCollectionChangeRequest.addAssets(NSArray(array: [createdAssetPlaceholder]))
+                }
             }
         }) { (success, error) in
             if success {
@@ -100,8 +108,9 @@ public class SwiftGallerySaverPlugin: NSObject, FlutterPlugin {
                 flutterResult(false)
             }
         }
+        
     }
-   
+    
     private func fetchAssetCollectionForAlbum(_ albumName: String) -> PHAssetCollection? {
         let fetchOptions = PHFetchOptions()
         fetchOptions.predicate = NSPredicate(format: "title = %@", albumName)

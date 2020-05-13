@@ -18,6 +18,7 @@ const List<String> imageFormats = [
   '.tif',
   '.heic'
 ];
+const List<String> audioFormats = ['.mp3'];
 const http = 'http';
 
 bool isLocalFilePath(String path) {
@@ -30,3 +31,6 @@ bool isVideo(String path) =>
 
 bool isImage(String path) =>
     imageFormats.contains(extension(path).toLowerCase());
+
+bool isAudio(String path) =>
+    audioFormats.contains(extension(path).toLowerCase());
